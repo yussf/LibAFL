@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::corpus::{Corpus, Testcase};
 use crate::events::EventManager;
-use crate::executors::{Executor, ExecutorsTuple, HasObservers};
+use crate::executors::{Executor, ExitKind, ExecutorsTuple, HasObservers};
 use crate::feedbacks::FeedbacksTuple;
 use crate::generators::Generator;
 use crate::inputs::Input;
@@ -130,14 +130,26 @@ where
     }
 
     /// Runs the input and triggers observers and feedback
-    pub fn evaluate_input<E>(&mut self, input: &I, executor: &mut E) -> Result<u32, AflError>
+    pub fn evaluate_input<C, E, EM>(&mut self, input: &I, executor: &mut E, manager: &mut EM) -> Result<u32, AflError>
     where
+        C: Corpus<I, R>,
         E: Executor<I> + HasObservers<OT>,
+        EM: EventManager<C, E, OT, FT, I, R>,
     {
         executor.reset_observers()?;
-        executor.run_target(&input)?;
+        let exit_kind = executor.run_target(&input)?;
         self.set_executions(self.executions() + 1);
         executor.post_exec_observers()?;
+
+        match exit_kind {
+            ExitKind::Crash => {
+                manager.crash(input)?;
+            },
+            ExitKind::Timeout => {
+                manager.timeout(input)?;
+            },
+            _ => ()
+        };
 
         let observers = executor.observers();
         let fitness = self.feedbacks_mut().is_interesting_all(&input, observers)?;
@@ -214,7 +226,7 @@ where
         let mut added = 0;
         for _ in 0..num {
             let input = generator.generate(rand)?;
-            let fitness = self.evaluate_input(&input, engine.executor_mut())?;
+            let fitness = self.evaluate_input(&input, engine.executor_mut(), manager)?;
             if !self.add_if_interesting(corpus, input, fitness)?.is_none() {
                 added += 1;
             }

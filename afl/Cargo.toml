@@ -35,6 +35,8 @@ tuple_list = "0.1.2"
 hashbrown =  { version = "0.9", features = ["serde"] } # A faster hashmap, nostd compatible
 libc = "0.2" # For (*nix) libc
 num = "*"
+num-derive = "*"
+num-traits = "*"
 xxhash-rust = { version = "0.8.0", features = ["xxh3"] } # xxh3 hashing for rust
 serde = { version = "1.0", default-features = false, features = ["alloc"] } # serialization lib
 erased-serde = "0.3.12"

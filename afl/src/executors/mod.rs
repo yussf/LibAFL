@@ -8,11 +8,12 @@ use crate::tuples::{MatchNameAndType, MatchType, Named, TupleList};
 use crate::AflError;
 
 /// How an execution finished.
+#[derive(FromPrimitive)]
 pub enum ExitKind {
-    Ok,
-    Crash,
-    OOM,
-    Timeout,
+    Ok = 1,
+    Crash = 2,
+    OOM = 3,
+    Timeout = 4,
 }
 
 pub trait HasObservers<OT>

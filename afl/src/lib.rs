@@ -8,6 +8,8 @@ Welcome to libAFL
 extern crate alloc;
 #[macro_use]
 extern crate static_assertions;
+#[macro_use]
+extern crate num_derive;
 
 pub mod corpus;
 pub mod engines;
