@@ -14,4 +14,5 @@ members = [
     "fuzzers/libfuzzer_libpng",
     "fuzzers/libfuzzer_libmozjpeg",
     "fuzzers/libfuzzer_libcue",
+    "fuzzers/libfuzzer_libpng_cmpalloc",
 ]
