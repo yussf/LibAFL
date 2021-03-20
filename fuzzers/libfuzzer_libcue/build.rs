@@ -15,7 +15,6 @@ fn main() {
     }
 
     let out_dir = env::var_os("OUT_DIR").unwrap();
-    let cwd = env::current_dir().unwrap().to_string_lossy().to_string();
     let out_dir = out_dir.to_string_lossy().to_string();
     let out_dir_path = Path::new(&out_dir);
 
@@ -24,7 +23,7 @@ fn main() {
 
     let libcue = format!("{}/libcue-2.2.1", &out_dir);
     let libcue_path = Path::new(&libcue);
-    let libcue_tar = format!("{}/v2.2.1.tar.gz", &cwd);
+    let libcue_tar = format!("{}/v2.2.1.tar.gz", &out_dir);
 
     // Enforce clang for its -fsanitize-coverage support.
     std::env::set_var("CC", "clang");
@@ -42,20 +41,16 @@ fn main() {
                 .status()
                 .unwrap();
         }
-        // Command::new("tar")
-        //     .current_dir(&out_dir_path)
-        //     .arg("-xvf")
-        //     .arg(&libcue_tar)
-        //     .status()
-        //     .unwrap();
+        //println!("{:?} {:?}", &out_dir_path, &libcue_tar);
+        Command::new("tar")
+            .current_dir(&out_dir_path)
+            .arg("-xvf")
+            .arg(&libcue_tar)
+            .status()
+            .unwrap();
         Command::new("cmake")
             .current_dir(&out_dir_path)
-            .args(&[
-                "-G",
-                "Unix Makefiles",
-                "--disable-shared",
-                &libcue,
-            ])
+            .args(&["-G", "Unix Makefiles", "--disable-shared", &libcue])
             .env("CC", "clang")
             .env("CXX", "clang++")
             .env(
@@ -67,7 +62,7 @@ fn main() {
                 "-O3 -g -D_DEFAULT_SOURCE -fPIE -fsanitize-coverage=trace-pc-guard",
             )
             .env("LDFLAGS", "-g -fPIE -fsanitize-coverage=trace-pc-guard")
-            .output()
+            .status()
             .unwrap();
         //println!("cargo:warning={}", format!("{}",  String::from_utf8_lossy(&output.stderr).replace("\n", "")));
     }
