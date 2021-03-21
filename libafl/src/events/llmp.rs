@@ -500,13 +500,58 @@ where
     }
 }
 
+/// Setup a manager.
+/// It first tries to bind to the given ports.
+/// The first instance then spawns as broker (if it can bind), or connects to the already existing port.
+/// The child will then fork off (or spawn a new process) that actually does the fuzzing.
 /// A restarting state is a combination of restarter and runner, that can be used on systems without `fork`.
 /// The restarter will start a new process each time the child crashes or timeouts.
 #[cfg(feature = "std")]
-pub fn setup_restarting_mgr<I, S, SH, ST>(
+pub fn setup_single_loop_mgr<I, S, ST>(
     //mgr: &mut LlmpEventManager<I, S, SH, ST>,
     stats: ST,
     broker_port: u16,
+) -> Result<(Option<S>, LlmpRestartingEventManager<I, S, UnixShMem, ST>), Error>
+where
+    I: Input,
+    S: DeserializeOwned + IfInteresting<I>,
+    ST: Stats,
+{
+    _setup_mgr::<I, S, UnixShMem, ST>(stats, broker_port, true)
+}
+
+/// Setup a manager.
+/// It first tries to bind to the given ports.
+/// The first instance then spawns as broker (if it can bind), or connects to the already existing port.
+/// The child will then fork off (or spawn a new process) that actually does the fuzzing.
+/// A restarting state is a combination of restarter and runner, that can be used on systems without `fork`.
+/// The restarter will start a new process each time the child crashes or timeouts.
+#[cfg(feature = "std")]
+pub fn setup_restarting_mgr<I, S, ST>(
+    //mgr: &mut LlmpEventManager<I, S, SH, ST>,
+    stats: ST,
+    broker_port: u16,
+) -> Result<(Option<S>, LlmpRestartingEventManager<I, S, UnixShMem, ST>), Error>
+where
+    I: Input,
+    S: DeserializeOwned + IfInteresting<I>,
+    ST: Stats,
+{
+    _setup_mgr::<I, S, UnixShMem, ST>(stats, broker_port, false)
+}
+
+/// Setup a manager.
+/// It first tries to bind to the given ports.
+/// The first instance then spawns as broker (if it can bind), or connects to the already existing port.
+/// The child will then fork off (or spawn a new process) that actually does the fuzzing.
+/// For debug purposes, or if the executor doesn't need this functionality,
+/// this extra fork can be disabled, the `single_loop_mode`.
+#[cfg(feature = "std")]
+fn _setup_mgr<I, S, SH, ST>(
+    //mgr: &mut LlmpEventManager<I, S, SH, ST>,
+    stats: ST,
+    broker_port: u16,
+    single_loop_mode: bool,
 ) -> Result<(Option<S>, LlmpRestartingEventManager<I, S, SH, ST>), Error>
 where
     I: Input,
@@ -551,6 +596,11 @@ where
             // Client->parent loop
             loop {
                 dbg!("Spawning next client (id {})", ctr);
+
+                // For debug purposes, never fork but stay in this process.
+                if single_loop_mode {
+                    break (sender, receiver);
+                }
 
                 // On Unix, we fork (todo: measure if that is actually faster.)
                 #[cfg(unix)]

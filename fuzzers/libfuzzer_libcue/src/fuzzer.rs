@@ -3,6 +3,7 @@
 
 use std::{env, path::PathBuf};
 
+use libafl::events::setup_single_loop_mgr;
 #[cfg(unix)]
 use libafl::{
     bolts::{shmem::UnixShMem, tuples::tuple_list},
@@ -83,18 +84,17 @@ fn fuzz(corpus_dirs: Vec<PathBuf>, objective_dir: PathBuf, broker_port: u16) -> 
     let stats = SimpleStats::new(|s| println!("{}", s));
 
     // The restarting state will spawn the same process again as child, then restarted it each time it crashes.
-    let (state, mut restarting_mgr) =
-        match setup_restarting_mgr::<_, _, UnixShMem, _>(stats, broker_port) {
-            Ok(res) => res,
-            Err(err) => match err {
-                Error::ShuttingDown => {
-                    return Ok(());
-                }
-                _ => {
-                    panic!("Failed to setup the restarter: {}", err);
-                }
-            },
-        };
+    let (state, mut restarting_mgr) = match setup_single_loop_mgr(stats, broker_port) {
+        Ok(res) => res,
+        Err(err) => match err {
+            Error::ShuttingDown => {
+                return Ok(());
+            }
+            _ => {
+                panic!("Failed to setup the restarter: {}", err);
+            }
+        },
+    };
 
     // Create an observation channel using the coverage map
     let edges_observer = HitcountsMapObserver::new(unsafe {

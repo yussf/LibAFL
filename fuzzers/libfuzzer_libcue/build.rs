@@ -44,15 +44,14 @@ fn main() {
                 .unwrap();
         }
         Command::new("tar")
-             .current_dir(&out_dir_path)
-             .arg("-xvf")
-             .arg(&libcue_tar)
-             .status()
-             .unwrap();
-
+            .current_dir(&out_dir_path)
+            .arg("-xvf")
+            .arg(&libcue_tar)
+            .status()
+            .unwrap();
     }
 
-   Command::new("patch")
+    Command::new("patch")
         .current_dir(&libcue)
         .arg("--forward")
         .arg("-p1")
@@ -65,12 +64,7 @@ fn main() {
 
     Command::new("cmake")
         .current_dir(&out_dir_path)
-        .args(&[
-            "-G",
-            "Unix Makefiles",
-            "--disable-shared",
-            &libcue,
-        ])
+        .args(&["-G", "Unix Makefiles", "--disable-shared", &libcue])
         .env("CC", "clang")
         .env("CXX", "clang++")
         .env(

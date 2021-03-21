@@ -1,0 +1,13 @@
+--- libcue-2.2.1/cue_parser.y	2021-03-20 14:41:00.765355000 +0100
++++ libcue-2.2.1/cue_parser.y	2021-03-20 14:41:39.155355000 +0100
+@@ -240,6 +240,10 @@
+ 	| INDEX NUMBER time '\n' {
+ 		long prev_length;
+ 
++		if ($2 < 0) {
++		    return 0;
++		}
++
+ 		/* Set previous track length if it has not been set */
+ 		if (NULL != prev_track && NULL == cur_filename
+ 		    && track_get_length (prev_track) == -1) {
