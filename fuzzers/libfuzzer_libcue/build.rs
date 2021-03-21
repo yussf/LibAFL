@@ -15,6 +15,7 @@ fn main() {
     }
 
     let out_dir = env::var_os("OUT_DIR").unwrap();
+    let cwd = env::current_dir().unwrap().to_string_lossy().to_string();
     let out_dir = out_dir.to_string_lossy().to_string();
     let out_dir_path = Path::new(&out_dir);
 
@@ -24,7 +25,7 @@ fn main() {
     let libcue = format!("{}/libcue-2.2.1", &out_dir);
     let libcue_path = Path::new(&libcue);
     let libcue_tar = format!("{}/v2.2.1.tar.gz", &out_dir);
-    let libcue_patch = "./cue_fixes.patch";
+    let libcue_patch = format!("{}/cue_fixes.patch", &cwd);
 
     // Enforce clang for its -fsanitize-coverage support.
     std::env::set_var("CC", "clang");
