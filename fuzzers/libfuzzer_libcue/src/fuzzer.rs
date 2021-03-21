@@ -127,10 +127,10 @@ fn fuzz(corpus_dirs: Vec<PathBuf>, objective_dir: PathBuf, broker_port: u16) -> 
     if state.metadata().get::<Tokens>().is_none() {
         state.add_metadata(Tokens::new(vec![
             vec![137, 80, 78, 71, 13, 10, 26, 10], // PNG header
-            "IHDR".as_bytes().to_vec(),
-            "IDAT".as_bytes().to_vec(),
-            "PLTE".as_bytes().to_vec(),
-            "IEND".as_bytes().to_vec(),
+            b"IHDR".to_vec(),
+            b"IDAT".to_vec(),
+            b"PLTE".to_vec(),
+            b"IEND".to_vec(),
         ]));
     }
 
@@ -168,10 +168,7 @@ fn fuzz(corpus_dirs: Vec<PathBuf>, objective_dir: PathBuf, broker_port: u16) -> 
                 fuzzer.scheduler(),
                 &corpus_dirs,
             )
-            .expect(&format!(
-                "Failed to load initial corpus at {:?}",
-                &corpus_dirs
-            ));
+            .unwrap_or_else(|_| panic!("Failed to load initial corpus at {:?}", &corpus_dirs));
         println!("We imported {} inputs from disk.", state.corpus().count());
     }
 
