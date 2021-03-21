@@ -1,7 +1,16 @@
 diff -Naur libcue-2.2.1-orig/cd.c libcue-2.2.1-fixes/cd.c
 --- libcue-2.2.1-orig/cd.c	2018-05-02 02:51:51.000000000 +0200
-+++ libcue-2.2.1-fixes/cd.c	2021-03-21 11:45:10.361724000 +0100
-@@ -340,7 +340,7 @@
++++ libcue-2.2.1-fixes/cd.c	2021-03-21 12:16:42.936387623 +0100
+@@ -194,8 +194,6 @@
+ {
+ 	if (MAXTRACK > cd->ntrack)
+ 		cd->ntrack++;
+-	else
+-		fprintf(stderr, "too many tracks\n");
+ 
+ 	/* this will reinit last track if there were too many */
+ 	cd->track[cd->ntrack - 1] = track_init();
+@@ -340,7 +338,7 @@
  void track_set_index(Track *track, int i, long ind)
  {
  	if (i > MAXINDEX) {
