@@ -1,0 +1,87 @@
+diff -Naur libcue-2.2.1-orig/cd.c libcue-2.2.1-fixes/cd.c
+--- libcue-2.2.1-orig/cd.c	2018-05-02 02:51:51.000000000 +0200
++++ libcue-2.2.1-fixes/cd.c	2021-03-21 11:45:10.361724000 +0100
+@@ -340,7 +340,7 @@
+ void track_set_index(Track *track, int i, long ind)
+ {
+ 	if (i > MAXINDEX) {
+-		fprintf(stderr, "too many indexes\n");
++		
+                 return;
+         }
+ 
+diff -Naur libcue-2.2.1-orig/cue_parser.y libcue-2.2.1-fixes/cue_parser.y
+--- libcue-2.2.1-orig/cue_parser.y	2018-05-02 02:51:51.000000000 +0200
++++ libcue-2.2.1-fixes/cue_parser.y	2021-03-21 11:44:12.381969000 +0100
+@@ -238,27 +238,33 @@
+ 	| TRACK_ISRC STRING '\n' { track_set_isrc(track, $2); }
+ 	| PREGAP time '\n' { track_set_zero_pre(track, $2); }
+ 	| INDEX NUMBER time '\n' {
+-		long prev_length;
+-
+-		/* Set previous track length if it has not been set */
+-		if (NULL != prev_track && NULL == cur_filename
+-		    && track_get_length (prev_track) == -1) {
+-			/* track shares file with previous track */
+-			prev_length = $3 - track_get_start(prev_track);
+-			track_set_length(prev_track, prev_length);
++		if ($2 < 0) {
++		    return 0;
+ 		}
+ 
+-		if (1 == $2) {
+-			/* INDEX 01 */
+-			track_set_start(track, $3);
+-
+-			long idx00 = track_get_index (track, 0);
++		if ($2 >= 0) {
++            long prev_length;
+ 
+-			if (idx00 != -1 && $3 != 0)
+-				track_set_zero_pre (track, $3 - idx00);
+-		}
+-
+-		track_set_index (track, $2, $3);
++            /* Set previous track length if it has not been set */
++            if (NULL != prev_track && NULL == cur_filename
++                && track_get_length (prev_track) == -1) {
++                /* track shares file with previous track */
++                prev_length = $3 - track_get_start(prev_track);
++                track_set_length(prev_track, prev_length);
++            }
++    
++            if (1 == $2) {
++                /* INDEX 01 */
++                track_set_start(track, $3);
++    
++                long idx00 = track_get_index (track, 0);
++    
++                if (idx00 != -1 && $3 != 0)
++                    track_set_zero_pre (track, $3 - idx00);
++            }
++    
++            track_set_index (track, $2, $3);  
++    	}
+ 	}
+ 	| POSTGAP time '\n' { track_set_zero_post(track, $2); }
+ 	| track_data
+@@ -320,7 +326,7 @@
+ 
+ void yyerror (const char *s)
+ {
+-	fprintf(stderr, "%d: %s\n", yylineno, s);
++
+ }
+ 
+ static void reset_static_vars()
+diff -Naur libcue-2.2.1-orig/cue_scanner.l libcue-2.2.1-fixes/cue_scanner.l
+--- libcue-2.2.1-orig/cue_scanner.l	2018-05-02 02:51:51.000000000 +0200
++++ libcue-2.2.1-fixes/cue_scanner.l	2021-03-21 11:44:45.841830000 +0100
+@@ -134,6 +134,6 @@
+ 
+ ^{ws}*\n	{ yylineno++; /* blank line */ }
+ \n		{ yylineno++; return '\n'; }
+-.		{ fprintf(stderr, "bad character '%c'\n", yytext[0]); }
++.		{  }
+ 
+ %%

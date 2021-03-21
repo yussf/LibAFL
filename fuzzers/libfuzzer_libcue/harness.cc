@@ -8,7 +8,7 @@
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   if (size == 0) {
-    return 1;
+    return 0;
   }
   
   //freopen("/dev/null", "w", stderr);

@@ -15,6 +15,7 @@ fn main() {
     }
 
     let out_dir = env::var_os("OUT_DIR").unwrap();
+    let cwd = env::current_dir().unwrap().to_string_lossy().to_string();
     let out_dir = out_dir.to_string_lossy().to_string();
     let out_dir_path = Path::new(&out_dir);
 
@@ -24,6 +25,7 @@ fn main() {
     let libcue = format!("{}/libcue-2.2.1", &out_dir);
     let libcue_path = Path::new(&libcue);
     let libcue_tar = format!("{}/v2.2.1.tar.gz", &out_dir);
+    let libcue_patch = format!("{}/cue_fixes.patch", &cwd);
 
     // Enforce clang for its -fsanitize-coverage support.
     std::env::set_var("CC", "clang");
@@ -41,31 +43,47 @@ fn main() {
                 .status()
                 .unwrap();
         }
-        //println!("{:?} {:?}", &out_dir_path, &libcue_tar);
         Command::new("tar")
-            .current_dir(&out_dir_path)
-            .arg("-xvf")
-            .arg(&libcue_tar)
-            .status()
-            .unwrap();
-        Command::new("cmake")
-            .current_dir(&out_dir_path)
-            .args(&["-G", "Unix Makefiles", "--disable-shared", &libcue])
-            .env("CC", "clang")
-            .env("CXX", "clang++")
-            .env(
-                "CFLAGS",
-                "-O3 -g -D_DEFAULT_SOURCE -fPIE -fsanitize-coverage=trace-pc-guard",
-            )
-            .env(
-                "CXXFLAGS",
-                "-O3 -g -D_DEFAULT_SOURCE -fPIE -fsanitize-coverage=trace-pc-guard",
-            )
-            .env("LDFLAGS", "-g -fPIE -fsanitize-coverage=trace-pc-guard")
-            .status()
-            .unwrap();
-        //println!("cargo:warning={}", format!("{}",  String::from_utf8_lossy(&output.stderr).replace("\n", "")));
+             .current_dir(&out_dir_path)
+             .arg("-xvf")
+             .arg(&libcue_tar)
+             .status()
+             .unwrap();
+
     }
+
+   Command::new("patch")
+        .current_dir(&libcue)
+        .arg("--forward")
+        .arg("-p1")
+        .arg("-i")
+        .arg(&libcue_patch)
+        .status()
+        .unwrap();
+
+    //println!("cargo:warning={}", format!("{}",  String::from_utf8_lossy(&output.stderr).replace("\n", "")));
+
+    Command::new("cmake")
+        .current_dir(&out_dir_path)
+        .args(&[
+            "-G",
+            "Unix Makefiles",
+            "--disable-shared",
+            &libcue,
+        ])
+        .env("CC", "clang")
+        .env("CXX", "clang++")
+        .env(
+            "CFLAGS",
+            "-O3 -g -D_DEFAULT_SOURCE -fPIE -fsanitize-coverage=trace-pc-guard",
+        )
+        .env(
+            "CXXFLAGS",
+            "-O3 -g -D_DEFAULT_SOURCE -fPIE -fsanitize-coverage=trace-pc-guard",
+        )
+        .env("LDFLAGS", "-g -fPIE -fsanitize-coverage=trace-pc-guard")
+        .status()
+        .unwrap();
 
     Command::new("make")
         .current_dir(&out_dir)
