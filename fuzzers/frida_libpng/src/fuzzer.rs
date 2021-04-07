@@ -25,13 +25,19 @@ use libafl::{
     Error,
 };
 
+use capstone::{
+    arch::{self, arm64::Arm64OperandType, ArchOperand::Arm64Operand, BuildsCapstone},
+    Capstone, Insn,
+};
 #[cfg(target_arch = "x86_64")]
 use frida_gum::instruction_writer::X86Register;
 #[cfg(target_arch = "aarch64")]
 use frida_gum::instruction_writer::{Aarch64Register, IndexMode};
-use frida_gum::{instruction_writer::InstructionWriter, stalker::{NoneEventSink, Stalker, Transformer, StalkerOutput}};
+use frida_gum::{
+    instruction_writer::InstructionWriter,
+    stalker::{NoneEventSink, Stalker, StalkerOutput, Transformer},
+};
 use frida_gum::{Gum, MemoryRange, Module, NativePointer, PageProtection};
-use capstone::{Capstone, Insn, arch::{self, ArchOperand::Arm64Operand, arm64::Arm64OperandType, BuildsCapstone}};
 use num_traits::cast::FromPrimitive;
 
 use std::{cell::RefCell, env, ffi::c_void, path::PathBuf};
@@ -179,32 +185,41 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
         helper.asan_runtime.unpoison_all_existing_memory();
         helper.asan_runtime.hook_library(module_name);
 
-        unsafe{
-        let lib = libloading::Library::new("libc.so").unwrap();
-        let memset_sym: libloading::Symbol<*mut c_void> = lib.get("memset".as_bytes()).unwrap();
-        helper.memset_addr = memset_sym.into_raw().into_raw();
-        println!("memset address: {:?}", helper.memset_addr);
-        let transformer = Transformer::from_callback(gum, |basic_block, output| {
-            let mut first = true;
-            for instruction in basic_block {
-                let instr = instruction.instr();
-                let address = instr.address();
-                if address >= helper.base_address
-                    && address <= helper.base_address + helper.size as u64 {
-                    if first {
-                        first = false;
-                        //println!("block @ {:x} transformed to {:x}", address, output.writer().pc());
-                        helper.emit_coverage_mapping(address, &output);
-                    }
+        unsafe {
+            let lib = libloading::Library::new("libc.so").unwrap();
+            let memset_sym: libloading::Symbol<*mut c_void> = lib.get("memset".as_bytes()).unwrap();
+            helper.memset_addr = memset_sym.into_raw().into_raw();
+            println!("memset address: {:?}", helper.memset_addr);
+            let transformer = Transformer::from_callback(gum, |basic_block, output| {
+                let mut first = true;
+                for instruction in basic_block {
+                    let instr = instruction.instr();
+                    let address = instr.address();
+                    if address >= helper.base_address
+                        && address <= helper.base_address + helper.size as u64
+                    {
+                        if first {
+                            first = false;
+                            //println!("block @ {:x} transformed to {:x}", address, output.writer().pc());
+                            helper.emit_coverage_mapping(address, &output);
+                        }
 
-                    if let Ok((basereg, indexreg, displacement)) = helper.is_interesting_instruction(address, instr) {
-                        helper.emit_shadow_check(address, &output, basereg, indexreg, displacement);
+                        if let Ok((basereg, indexreg, displacement)) =
+                            helper.is_interesting_instruction(address, instr)
+                        {
+                            helper.emit_shadow_check(
+                                address,
+                                &output,
+                                basereg,
+                                indexreg,
+                                displacement,
+                            );
+                        }
                     }
+                    instruction.keep()
                 }
-                instruction.keep()
-            }
-        });
-        helper.transformer = Some(transformer);
+            });
+            helper.transformer = Some(transformer);
         }
         helper
     }
@@ -216,7 +231,14 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
     }
 
     #[inline]
-    fn emit_shadow_check(&self, _address: u64, output: &StalkerOutput, basereg: capstone::RegId, indexreg: capstone::RegId, displacement: i32) {
+    fn emit_shadow_check(
+        &self,
+        _address: u64,
+        output: &StalkerOutput,
+        basereg: capstone::RegId,
+        indexreg: capstone::RegId,
+        displacement: i32,
+    ) {
         let writer = output.writer();
 
         let basereg = self.get_writer_register(basereg);
@@ -239,23 +261,13 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
 
         // Make sure the base register is copied into x0
         match basereg {
-            Aarch64Register::X0 | Aarch64Register::W0 => {
-            },
+            Aarch64Register::X0 | Aarch64Register::W0 => {}
             Aarch64Register::X1 | Aarch64Register::W1 => {
-                writer.put_mov_reg_reg(
-                    Aarch64Register::X0,
-                    Aarch64Register::X1
-                );
-            },
+                writer.put_mov_reg_reg(Aarch64Register::X0, Aarch64Register::X1);
+            }
             _ => {
-                if !writer.put_mov_reg_reg(
-                    Aarch64Register::X0,
-                    basereg
-                ) {
-                    writer.put_mov_reg_reg(
-                        Aarch64Register::W0,
-                        basereg,
-                    );
+                if !writer.put_mov_reg_reg(Aarch64Register::X0, basereg) {
+                    writer.put_mov_reg_reg(Aarch64Register::W0, basereg);
                 }
             }
         }
@@ -267,26 +279,18 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
                     writer.put_ldr_reg_reg_offset(
                         Aarch64Register::X1,
                         Aarch64Register::Sp,
-                        (8 + frida_gum_sys::GUM_RED_ZONE_SIZE) as u64
+                        (8 + frida_gum_sys::GUM_RED_ZONE_SIZE) as u64,
                     );
                     writer.put_brk_imm(0x77);
-                },
-                Aarch64Register::X1 | Aarch64Register::W1 => {
-                },
+                }
+                Aarch64Register::X1 | Aarch64Register::W1 => {}
                 _ => {
-                    if !writer.put_mov_reg_reg(
-                        Aarch64Register::X1,
-                        indexreg.unwrap()
-                    ) {
-                        writer.put_mov_reg_reg(
-                            Aarch64Register::W1,
-                            indexreg.unwrap()
-                        );
+                    if !writer.put_mov_reg_reg(Aarch64Register::X1, indexreg.unwrap()) {
+                        writer.put_mov_reg_reg(Aarch64Register::W1, indexreg.unwrap());
                     }
                 }
             }
         }
-
 
         if indexreg.is_some() {
             writer.put_add_reg_reg_reg(
@@ -296,27 +300,27 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
             );
         }
 
-        let displacement = displacement + if basereg == Aarch64Register::Sp {
-            16 + frida_gum_sys::GUM_RED_ZONE_SIZE as i32
-        } else {
-            0
-        };
+        let displacement = displacement
+            + if basereg == Aarch64Register::Sp {
+                16 + frida_gum_sys::GUM_RED_ZONE_SIZE as i32
+            } else {
+                0
+            };
 
         if displacement < 0 {
             // Subtract the displacement into x0
             writer.put_sub_reg_reg_imm(
                 Aarch64Register::X0,
                 Aarch64Register::X0,
-                displacement.abs() as u64
+                displacement.abs() as u64,
             );
         } else if displacement > 0 {
             // Add the displacement into x0
             writer.put_add_reg_reg_imm(
                 Aarch64Register::X0,
                 Aarch64Register::X0,
-                displacement as u64
+                displacement as u64,
             );
-
         }
 
         // Insert the check_shadow_mem code blob
@@ -333,8 +337,17 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
     }
 
     #[inline]
-    fn is_interesting_instruction(&self, _address: u64, instr: &Insn) -> Result<(capstone::RegId, capstone::RegId, i32), ()> {
-        let operands = self.capstone.insn_detail(instr).unwrap().arch_detail().operands();
+    fn is_interesting_instruction(
+        &self,
+        _address: u64,
+        instr: &Insn,
+    ) -> Result<(capstone::RegId, capstone::RegId, i32), ()> {
+        let operands = self
+            .capstone
+            .insn_detail(instr)
+            .unwrap()
+            .arch_detail()
+            .operands();
         if operands.len() < 2 {
             return Err(());
         }
@@ -353,10 +366,7 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
         let writer = output.writer();
         if self.current_log_impl == 0
             || !writer.can_branch_directly_to(self.current_log_impl)
-            || !writer.can_branch_directly_between(
-                writer.pc() + 128,
-                self.current_log_impl,
-            )
+            || !writer.can_branch_directly_between(writer.pc() + 128, self.current_log_impl)
         {
             let after_log_impl = writer.code_offset() + 1;
 
