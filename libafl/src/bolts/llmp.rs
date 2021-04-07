@@ -53,6 +53,7 @@ Then register some clientloops using llmp_broker_register_threaded_clientloop
 */
 
 use alloc::{string::String, vec::Vec};
+use libc::ucontext_t;
 use core::{
     cmp::max,
     fmt::Debug,
@@ -1309,7 +1310,7 @@ pub struct LlmpBrokerSignalHandler {
 
 #[cfg(all(unix))]
 impl Handler for LlmpBrokerSignalHandler {
-    fn handle(&mut self, _signal: Signal, _info: siginfo_t, _void: *const c_void) {
+    fn handle(&mut self, _signal: Signal, _info: siginfo_t, _context: ucontext_t) {
         unsafe { ptr::write_volatile(&mut self.shutting_down, true) };
     }
 
