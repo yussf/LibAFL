@@ -24,6 +24,8 @@ use std::{
     thread,
 };
 
+use std::rc::Rc;
+
 #[cfg(all(unix, feature = "std"))]
 use uds::{UnixListenerExt, UnixSocketAddr, UnixStreamExt};
 
@@ -173,12 +175,13 @@ impl AshmemService {
                     ([0; 20], -1)
                 }
                 Ok(map) => {
-                    let res = (*map.shm_slice(), map.shm_id);
+                    let fd = map.shm_id;
+
                     self.maps.insert(*map.shm_slice(), map);
-                    res
+                    fd
                 }
             },
-            AshmemRequest::ExistingMap(description) => {
+            AshmemRequest::ExistingPage(description) => {
                 match self.maps.get(&description.str_bytes) {
                     None => {
                         println!("Error finding shared map {:?}", description);
@@ -196,8 +199,6 @@ impl AshmemService {
         Ok(())
     }
 
-    /// Create a new AshmemService, then listen and service incoming connections in a new thread.
-    pub fn start() -> Result<thread::JoinHandle<()>, Error> {
         Ok(thread::spawn(move || {
             Self::new().listen(ASHMEM_SERVER_NAME).unwrap()
         }))
