@@ -53,7 +53,6 @@ Then register some clientloops using llmp_broker_register_threaded_clientloop
 */
 
 use alloc::{string::String, vec::Vec};
-use libc::ucontext_t;
 use core::{
     cmp::max,
     fmt::Debug,
@@ -62,6 +61,7 @@ use core::{
     sync::atomic::{compiler_fence, Ordering},
     time::Duration,
 };
+use libc::ucontext_t;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
 use std::{
