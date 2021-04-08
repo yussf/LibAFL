@@ -123,8 +123,6 @@ impl ShMem for ServedShMem {
 
     fn map_mut(&mut self) -> &mut [u8] {
         self.shmem.as_mut().unwrap().map_mut()
-    }
-}
 
 /// A request sent to the ShMem server to receive a fd to a shared map
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
@@ -162,8 +160,6 @@ impl AshmemService {
         let mut size_bytes = [0u8; 4];
         stream.read_exact(&mut size_bytes)?;
         let size = u32::from_be_bytes(size_bytes);
-        let mut bytes = vec![];
-        bytes.resize(size as usize, 0u8);
         stream
             .read_exact(&mut bytes)
             .expect("Failed to read message body");
