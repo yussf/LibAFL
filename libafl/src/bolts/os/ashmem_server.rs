@@ -24,8 +24,6 @@ use std::{
     thread,
 };
 
-use std::rc::Rc;
-
 #[cfg(all(unix, feature = "std"))]
 use uds::{UnixListenerExt, UnixSocketAddr, UnixStreamExt};
 
@@ -71,7 +69,34 @@ impl ServedShMem {
         (shm_slice, fd_buf[0])
     }
 }
+const ASHMEM_SERVER_NAME: &str = "@ashmem_server";
 
+impl ServedShMem {
+    pub fn connect(name: &str) -> Self {
+        Self {
+            stream: UnixStream::connect_to_unix_addr(&UnixSocketAddr::from_abstract(name).unwrap())
+                .expect("Failed to connect to the ashmem server"),
+            shmem: None,
+            slice: None,
+            fd: None,
+        }
+    }
+
+    fn send_receive(&mut self, request: AshmemRequest) -> ([u8; 20], RawFd) {
+        let body  = postcard::to_allocvec(&request).unwrap();
+
+        let header = (body.len() as u32).to_be_bytes();
+        let mut message = header.to_vec();
+        message.extend(body);
+
+        self.stream.write_all(&message).expect("Failed to send message");
+
+        let mut shm_slice = [0u8; 20];
+        let mut fd_buf = [-1; 1];
+        self.stream.recv_fds(&mut shm_slice, &mut fd_buf).expect("Did not receive a response");
+        (shm_slice, fd_buf[0])
+    }
+}
 impl ShMem for ServedShMem {
     fn new_map(map_size: usize) -> Result<Self, crate::Error> {
         let mut res = Self::connect(ASHMEM_SERVER_NAME);
@@ -125,6 +150,8 @@ impl ShMem for ServedShMem {
 
     fn map_mut(&mut self) -> &mut [u8] {
         self.shmem.as_mut().unwrap().map_mut()
+    }
+}
 
 /// A request sent to the ShMem server to receive a fd to a shared map
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
@@ -169,7 +196,6 @@ impl AshmemService {
 
         // Handle the client request
         let (shmem_slice, fd): ([u8; 20], RawFd) = match request {
-            AshmemRequest::NewMap(map_size) => match UnixShMem::new(map_size) {
                 Err(e) => {
                     println!("Error allocating shared map {:?}", e);
                     ([0; 20], -1)
@@ -181,7 +207,7 @@ impl AshmemService {
                     fd
                 }
             },
-            AshmemRequest::ExistingPage(description) => {
+            AshmemRequest::ExistingMap(description) => {
                 match self.maps.get(&description.str_bytes) {
                     None => {
                         println!("Error finding shared map {:?}", description);
