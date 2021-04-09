@@ -38,6 +38,7 @@ pub struct ServedShMem {
 const ASHMEM_SERVER_NAME: &str = "@ashmem_server";
 
 impl ServedShMem {
+    /// Create a new ServedShMem and connect to the ashmem server.
     pub fn connect(name: &str) -> Self {
         Self {
             stream: UnixStream::connect_to_unix_addr(&UnixSocketAddr::from_abstract(name).unwrap())
@@ -48,6 +49,7 @@ impl ServedShMem {
         }
     }
 
+    /// Send a request to the server, and wait for a response
     fn send_receive(&mut self, request: AshmemRequest) -> ([u8; 20], RawFd) {
         let body = postcard::to_allocvec(&request).unwrap();
 
@@ -67,6 +69,7 @@ impl ServedShMem {
         (shm_slice, fd_buf[0])
     }
 }
+
 impl ShMem for ServedShMem {
     fn new_map(map_size: usize) -> Result<Self, crate::Error> {
         let mut res = Self::connect(ASHMEM_SERVER_NAME);
@@ -147,11 +150,7 @@ pub struct AshmemService {
 impl AshmemService {
     /// Create a new AshMem service
     #[must_use]
-<<<<<<< HEAD
     fn new() -> Self {
-=======
-    pub fn new() -> Self {
->>>>>>> f8c4f64 (ashmem_service: format)
         AshmemService {
             maps: HashMap::new(),
         }
@@ -170,15 +169,15 @@ impl AshmemService {
 
         // Handle the client request
         let (shmem_slice, fd): ([u8; 20], RawFd) = match request {
+            AshmemRequest::NewMap(map_size) => match UnixShMem::new(map_size) {
                 Err(e) => {
                     println!("Error allocating shared map {:?}", e);
                     ([0; 20], -1)
                 }
                 Ok(map) => {
-                    let fd = map.shm_id;
-
+                    let res = (*map.shm_slice(), map.shm_id);
                     self.maps.insert(*map.shm_slice(), map);
-                    fd
+                    res
                 }
             },
             AshmemRequest::ExistingMap(description) => {
@@ -199,7 +198,8 @@ impl AshmemService {
         Ok(())
     }
 
-    pub fn start(&'static mut self) -> Result<thread::JoinHandle<()>, Error> {
+    /// Create a new AshmemService, then listen and service incoming connections in a new thread.
+    pub fn start() -> Result<thread::JoinHandle<()>, Error> {
         Ok(thread::spawn(move || {
             Self::new().listen(ASHMEM_SERVER_NAME).unwrap()
         }))
