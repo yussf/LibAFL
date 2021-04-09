@@ -38,7 +38,6 @@ pub struct ServedShMem {
 const ASHMEM_SERVER_NAME: &str = "@ashmem_server";
 
 impl ServedShMem {
-    /// Create a new ServedShMem and connect to the ashmem server.
     pub fn connect(name: &str) -> Self {
         Self {
             stream: UnixStream::connect_to_unix_addr(&UnixSocketAddr::from_abstract(name).unwrap())
@@ -49,7 +48,6 @@ impl ServedShMem {
         }
     }
 
-    /// Send a request to the server, and wait for a response
     fn send_receive(&mut self, request: AshmemRequest) -> ([u8; 20], RawFd) {
         let body = postcard::to_allocvec(&request).unwrap();
 
@@ -66,34 +64,6 @@ impl ServedShMem {
         self.stream
             .recv_fds(&mut shm_slice, &mut fd_buf)
             .expect("Did not receive a response");
-        (shm_slice, fd_buf[0])
-    }
-}
-const ASHMEM_SERVER_NAME: &str = "@ashmem_server";
-
-impl ServedShMem {
-    pub fn connect(name: &str) -> Self {
-        Self {
-            stream: UnixStream::connect_to_unix_addr(&UnixSocketAddr::from_abstract(name).unwrap())
-                .expect("Failed to connect to the ashmem server"),
-            shmem: None,
-            slice: None,
-            fd: None,
-        }
-    }
-
-    fn send_receive(&mut self, request: AshmemRequest) -> ([u8; 20], RawFd) {
-        let body  = postcard::to_allocvec(&request).unwrap();
-
-        let header = (body.len() as u32).to_be_bytes();
-        let mut message = header.to_vec();
-        message.extend(body);
-
-        self.stream.write_all(&message).expect("Failed to send message");
-
-        let mut shm_slice = [0u8; 20];
-        let mut fd_buf = [-1; 1];
-        self.stream.recv_fds(&mut shm_slice, &mut fd_buf).expect("Did not receive a response");
         (shm_slice, fd_buf[0])
     }
 }
@@ -177,7 +147,11 @@ pub struct AshmemService {
 impl AshmemService {
     /// Create a new AshMem service
     #[must_use]
+<<<<<<< HEAD
     fn new() -> Self {
+=======
+    pub fn new() -> Self {
+>>>>>>> f8c4f64 (ashmem_service: format)
         AshmemService {
             maps: HashMap::new(),
         }
@@ -225,6 +199,7 @@ impl AshmemService {
         Ok(())
     }
 
+    pub fn start(&'static mut self) -> Result<thread::JoinHandle<()>, Error> {
         Ok(thread::spawn(move || {
             Self::new().listen(ASHMEM_SERVER_NAME).unwrap()
         }))
