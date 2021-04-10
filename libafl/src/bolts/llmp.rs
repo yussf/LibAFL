@@ -61,6 +61,7 @@ use core::{
     sync::atomic::{compiler_fence, Ordering},
     time::Duration,
 };
+#[cfg(unix)]
 use libc::ucontext_t;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
@@ -94,7 +95,7 @@ use backtrace::Backtrace;
 use uds::{UnixListenerExt, UnixSocketAddr, UnixStreamExt};
 
 #[cfg(unix)]
-use crate::bolts::os::unix_signals::{c_void, setup_signal_handler, siginfo_t, Handler, Signal};
+use crate::bolts::os::unix_signals::{setup_signal_handler, siginfo_t, Handler, Signal};
 use crate::{
     bolts::shmem::{ShMem, ShMemDescription},
     Error,
@@ -1308,7 +1309,7 @@ pub struct LlmpBrokerSignalHandler {
     shutting_down: bool,
 }
 
-#[cfg(all(unix))]
+#[cfg(unix)]
 impl Handler for LlmpBrokerSignalHandler {
     fn handle(&mut self, _signal: Signal, _info: siginfo_t, _context: &mut ucontext_t) {
         unsafe { ptr::write_volatile(&mut self.shutting_down, true) };
