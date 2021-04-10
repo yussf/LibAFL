@@ -518,7 +518,7 @@ where
 pub fn setup_restarting_mgr<I, S, SH, ST>(
     //mgr: &mut LlmpEventManager<I, S, SH, ST>,
     stats: ST,
-    broker_port: u16,
+    _broker_port: u16,
 ) -> Result<(Option<S>, LlmpRestartingEventManager<I, S, SH, ST>), Error>
 where
     I: Input,
@@ -530,13 +530,13 @@ where
 
     // We start ourself as child process to actually fuzz
     let (sender, mut receiver) = if std::env::var(_ENV_FUZZER_SENDER).is_err() {
-        #[cfg(target_os = "android")]
+        //#[cfg(target_os = "android")]
+        //{
+            //mgr = LlmpEventManager::<I, S, SH, ST>::new_on_domain_socket(stats, "\x00llmp_socket")?;
+        //};
+        //#[cfg(not(target_os = "android"))]
         {
-            mgr = LlmpEventManager::<I, S, SH, ST>::new_on_domain_socket(stats, "\x00llmp_socket")?;
-        };
-        #[cfg(not(target_os = "android"))]
-        {
-            mgr = LlmpEventManager::<I, S, SH, ST>::new_on_port(stats, broker_port)?
+            mgr = LlmpEventManager::<I, S, SH, ST>::new_on_port(stats, _broker_port)?
         };
 
         if mgr.is_broker() {

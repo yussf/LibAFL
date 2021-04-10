@@ -100,6 +100,8 @@ use crate::{
     bolts::shmem::{ShMem, ShMemDescription},
     Error,
 };
+#[cfg(target_os = "android")]
+use crate::bolts::os::ashmem_server::AshmemService;
 
 /// We'll start off with 256 megabyte maps per fuzzer client
 #[cfg(not(feature = "llmp_small_maps"))]
@@ -1328,6 +1330,8 @@ where
 {
     /// Create and initialize a new llmp_broker
     pub fn new() -> Result<Self, Error> {
+        #[cfg(target_os = "android")]
+        AshmemService::start().expect("error starting ");
         let broker = LlmpBroker {
             llmp_out: LlmpSender {
                 id: 0,
@@ -1474,8 +1478,10 @@ where
         // to read from the initial map id.
 
         let client_out_map_mem = &self.llmp_out.out_maps.first().unwrap().shmem;
+        println!("out_maps: {:?}", self.llmp_out.out_maps);
         let broadcast_map_description = postcard::to_allocvec(&client_out_map_mem.description())?;
         let client_out_map_mem_fd: i32 = client_out_map_mem.shm_str().parse().unwrap();
+        println!("client_out_map_mem_fd: {:?}", client_out_map_mem_fd);
 
         let mut incoming_map_description_serialized = vec![0u8; broadcast_map_description.len()];
 
@@ -1544,6 +1550,7 @@ where
 
                         let broadcast_fd_initial: i32 = client_out_map_mem_fd;
 
+                        println!("sending fd: {:?}", client_out_map_mem_fd);
                         match sendmsg(
                             stream.as_raw_fd(),
                             &[IoVec::from_slice(b"\x00")],
@@ -1950,6 +1957,7 @@ where
                             dbg!("error converting fd to string");
                         }
                     }
+                    println!("fdstr: {:?}", fdstr);
 
                     let ret = Self::new(LlmpSharedMap::existing(SH::existing_from_shm_slice(
                         &fdstr,
