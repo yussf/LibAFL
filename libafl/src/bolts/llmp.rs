@@ -94,14 +94,14 @@ use backtrace::Backtrace;
 #[cfg(all(unix, feature = "std"))]
 use uds::{UnixListenerExt, UnixSocketAddr, UnixStreamExt};
 
+#[cfg(target_os = "android")]
+use crate::bolts::os::ashmem_server::AshmemService;
 #[cfg(unix)]
 use crate::bolts::os::unix_signals::{setup_signal_handler, siginfo_t, Handler, Signal};
 use crate::{
     bolts::shmem::{ShMem, ShMemDescription},
     Error,
 };
-#[cfg(target_os = "android")]
-use crate::bolts::os::ashmem_server::AshmemService;
 
 /// We'll start off with 256 megabyte maps per fuzzer client
 #[cfg(not(feature = "llmp_small_maps"))]

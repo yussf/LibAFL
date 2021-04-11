@@ -5,7 +5,6 @@ use libafl::{
     bolts::{
         os::ashmem_server::ServedShMem,
         tuples::{tuple_list, Named},
-
     },
     corpus::{
         Corpus, InMemoryCorpus, IndexesLenTimeMinimizerCorpusScheduler, OnDiskCorpus,
@@ -41,7 +40,13 @@ use frida_gum::{
 use frida_gum::{Gum, MemoryRange, Module, NativePointer, PageProtection};
 use num_traits::cast::FromPrimitive;
 
-use std::{cell::RefCell, env, ffi::c_void, path::PathBuf, rc::Rc};
+use std::{
+    cell::RefCell,
+    env,
+    ffi::c_void,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 
 use libafl_frida::asan_rt::AsanRuntime;
 

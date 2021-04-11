@@ -25,7 +25,6 @@ fn build_dep_check(tools: &[&str]) {
     }
 }
 
-
 fn main() {
     if cfg!(windows) {
         println!("cargo:warning=Skipping libpng frida example on Windows");
@@ -134,5 +133,4 @@ fn main() {
         .status()
         .unwrap();
     assert!(status.success());
-
 }
