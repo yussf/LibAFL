@@ -19,7 +19,8 @@ debug = true
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
 num_cpus = "1.0"
-which = "4.1.0"
+
+which = "4.1"
 
 [target.'cfg(unix)'.dependencies]
 libafl = { path = "../../libafl/", features = [ "std" ] } #,  "llmp_small_maps", "llmp_debug"]}
