@@ -1,7 +1,7 @@
 [package]
 name = "libafl_frida"
 version = "0.1.0"
-authors = ["s1341 <github@shmarya.net>"]
+authors = ["s1341 <github@shmarya.net>", "OmreeBenari <github@Omreeb.net>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,9 +16,10 @@ libc = "0.2.92"
 hashbrown = "0.11"
 libloading = "0.7.0"
 rangemap = "0.1.10"
-frida-gum = { path =  "../../frida-rust/frida-gum", version = "0.3.4", features = [ "backtrace", "event-sink", "invocation-listener"] }
-frida-gum-sys = { path = "../../frida-rust/frida-gum-sys", version = "0.2.2", features = [ "event-sink", "invocation-listener"] }
-gothook = { path = "../../gothook", version = "0.1" }
+frida-gum =  {version = "0.4.0", features = [ "auto-download", "backtrace", "event-sink", "invocation-listener"] }
+frida-gum-sys = {version = "0.2.4", features = [ "auto-download", "event-sink", "invocation-listener"] }
+libafl_targets = { path = "../libafl_targets", version = "0.1.0" , features = ["cmplog"]}
+gothook = {version = "0.1"}
 regex = "1.4.5"
 dynasmrt = "1.0.1"
 capstone = "0.8.0"
