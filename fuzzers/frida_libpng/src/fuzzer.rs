@@ -955,7 +955,7 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
     ) -> Result<(CmplogOperandType, CmplogOperandType), ()> {
         // We only care for compare instrunctions - aka instructions which set the flags
         match instr.mnemonic().unwrap() {
-            "cmp" | "ands" | "subs" => (),
+            "cmp" | "ands" | "subs" | "adds" | "negs" | "ngcs" | "sbcs" | "bics" | "cls" => (),
             _ => return Err(()),
         }
         let operands = self
