@@ -259,6 +259,29 @@ const MAYBE_LOG_CODE: [u8; 60] = [
           // &afl_prev_loc_ptr
 ];
 
+enum CmplogOperandType {
+    regid(capstone::RegId),
+    imm(u64),
+    cimm(u64),
+    mem(capstone::RegId, capstone::RegId, i32, u32),
+}
+
+fn print_operand(op: &CmplogOperandType) {
+    println!("in print_operand");
+    match op {
+        CmplogOperandType::imm(value) | CmplogOperandType::cimm(value) => {
+            println!("imm/cimm;");
+        }
+        CmplogOperandType::regid(reg) => {
+            println!("regid;");
+        }
+        CmplogOperandType::mem(basereg, indexreg, displacement, width) => {
+            println!("mem; base-, index-, disp-");
+        }
+    }
+}
+
+
 /// The implementation of the FridaEdgeCoverageHelper
 impl<'a> FridaEdgeCoverageHelper<'a> {
     /// Constructor function to create a new FridaEdgeCoverageHelper, given a module_name.
@@ -333,9 +356,24 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
                         }
                     }
 
+                    if helper.options.cmplog_enabled() {
+                        // check if this instruction is compare instruction and if so save the registers values
+                        if let Ok((op1, op2)) =
+                            helper.is_interesting_cmplog_instruction(address, instr)
+                        {
+                            //emit code that saves the relevant data in runtime(passes it to x0, x1)
+                            println!("emiting at address: {:#04x} {}", address, instr);
+                            // println!("op1:");
+                            // print_operand(&op1);
+                            // println!("op2:");
+                            // print_operand(&op2);
+                            helper.emit_comparison_handling(address, &output, op1, op2);
+                        }
+                    }
+
                     if helper.options.asan_enabled() {
                         if let Ok((basereg, indexreg, displacement, width)) =
-                            helper.is_interesting_instruction(address, instr)
+                            helper.is_interesting_asan_instruction(address, instr)
                         {
                             helper.emit_shadow_check(
                                 address,
@@ -370,6 +408,165 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
     fn get_writer_register(&self, reg: capstone::RegId) -> Aarch64Register {
         let regint: u16 = reg.0;
         Aarch64Register::from_u32(regint as u32).unwrap()
+    }
+
+    #[inline]
+    fn emit_comparison_handling(
+        &self,
+        _address: u64,
+        output: &StalkerOutput,
+        op1: CmplogOperandType,
+        op2: CmplogOperandType,
+    ) {
+        let writer = output.writer();
+
+        //writer.put_brk_imm(1);
+
+        // Preserve x0, x1:
+        writer.put_stp_reg_reg_reg_offset(
+            Aarch64Register::X0,
+            Aarch64Register::X1,
+            Aarch64Register::Sp,
+            -(16 + frida_gum_sys::GUM_RED_ZONE_SIZE as i32) as i64,
+            IndexMode::PreAdjust,
+        );
+
+        // make sure operand1 value is saved into x0
+        match op1 {
+            CmplogOperandType::imm(value) | CmplogOperandType::cimm(value) => {
+                writer.put_ldr_reg_u64(Aarch64Register::X0, value);
+            }
+            CmplogOperandType::regid(reg) => {
+                println!("here..3 operand1 is regid");
+                let reg = self.get_writer_register(reg);
+                match reg {
+                    Aarch64Register::X0 | Aarch64Register::W0 => {}
+                    Aarch64Register::X1 | Aarch64Register::W1 => {
+                        writer.put_mov_reg_reg(Aarch64Register::X0, Aarch64Register::X1);
+                    }
+                    _ => {
+                        if !writer.put_mov_reg_reg(Aarch64Register::X0, reg) {
+                            writer.put_mov_reg_reg(Aarch64Register::W0, reg);
+                        }
+                    }
+                }
+            }
+            CmplogOperandType::mem(basereg, indexreg, displacement, width) => {
+                let basereg = self.get_writer_register(basereg);
+                let indexreg = if indexreg.0 != 0 {
+                    Some(self.get_writer_register(indexreg))
+                } else {
+                    None
+                };
+
+                // calculate base+index+displacment into x0
+                let displacement = displacement
+                    + if basereg == Aarch64Register::Sp {
+                        16 + frida_gum_sys::GUM_RED_ZONE_SIZE as i32
+                    } else {
+                        0
+                    };
+
+                writer.put_add_reg_reg_imm(basereg, basereg, displacement as u64);
+
+                if indexreg.is_some() {
+                    if let Some(indexreg) = indexreg {
+                        writer.put_add_reg_reg_reg(basereg, basereg, indexreg);
+                    }
+                }
+
+                match basereg {
+                    Aarch64Register::X0 | Aarch64Register::W0 => {}
+                    Aarch64Register::X1 | Aarch64Register::W1 => {
+                        writer.put_mov_reg_reg(Aarch64Register::X0, Aarch64Register::X1);
+                    }
+                    _ => {
+                        if !writer.put_mov_reg_reg(Aarch64Register::X0, basereg) {
+                            writer.put_mov_reg_reg(Aarch64Register::W0, basereg);
+                        }
+                    }
+                }
+
+                //deref into x0 to get the real value
+                writer.put_ldr_reg_reg_offset(Aarch64Register::X0, Aarch64Register::X0, 0u64);
+            }
+        }
+
+        // make sure operand2 value is saved into x1
+        match op2 {
+            CmplogOperandType::imm(value) | CmplogOperandType::cimm(value) => {
+                writer.put_ldr_reg_u64(Aarch64Register::X1, value);
+                println!("here.. opernad2 is immidiate");
+            }
+            CmplogOperandType::regid(reg) => {
+                let reg = self.get_writer_register(reg);
+                match reg {
+                    Aarch64Register::X1 | Aarch64Register::W1 => {}
+                    Aarch64Register::X0 | Aarch64Register::W0 => {
+                        writer.put_mov_reg_reg(Aarch64Register::X1, Aarch64Register::X0);
+                    }
+                    _ => {
+                        if !writer.put_mov_reg_reg(Aarch64Register::X1, reg) {
+                            writer.put_mov_reg_reg(Aarch64Register::W1, reg);
+                        }
+                    }
+                }
+            }
+            CmplogOperandType::mem(basereg, indexreg, displacement, width) => {
+                let basereg = self.get_writer_register(basereg);
+                let indexreg = if indexreg.0 != 0 {
+                    Some(self.get_writer_register(indexreg))
+                } else {
+                    None
+                };
+
+                // calculate base+index+displacment into x1
+                let displacement = displacement
+                    + if basereg == Aarch64Register::Sp {
+                        16 + frida_gum_sys::GUM_RED_ZONE_SIZE as i32
+                    } else {
+                        0
+                    };
+
+                writer.put_add_reg_reg_imm(basereg, basereg, displacement as u64);
+
+                if indexreg.is_some() {
+                    if let Some(indexreg) = indexreg {
+                        writer.put_add_reg_reg_reg(basereg, basereg, indexreg);
+                    }
+                }
+
+                match basereg {
+                    Aarch64Register::X1 | Aarch64Register::W1 => {}
+                    Aarch64Register::X0 | Aarch64Register::W0 => {
+                        writer.put_mov_reg_reg(Aarch64Register::X1, Aarch64Register::X0);
+                    }
+                    _ => {
+                        if !writer.put_mov_reg_reg(Aarch64Register::X1, basereg) {
+                            writer.put_mov_reg_reg(Aarch64Register::W1, basereg);
+                        }
+                    }
+                }
+
+                //deref into x0 to get the real value
+                writer.put_ldr_reg_reg_offset(Aarch64Register::X1, Aarch64Register::X1, 0u64);
+            }
+        }
+        println!("finished emiting the \"pass to x0,x1\" code");
+        //call cmplog runtime to populate the values map
+        writer.put_brk_imm(88);
+        writer.put_bytes(&self.cmplog_runtime.ops_save_register_and_blr_to_populate());
+
+        // Restore x0, x1
+        assert!(writer.put_ldp_reg_reg_reg_offset(
+            Aarch64Register::X0,
+            Aarch64Register::X1,
+            Aarch64Register::Sp,
+            16 + frida_gum_sys::GUM_RED_ZONE_SIZE as i64,
+            IndexMode::PostAdjust,
+        ));
+
+        println!("wrote restore x0 x1");
     }
 
     #[inline]
@@ -555,7 +752,7 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
     }
 
     #[inline]
-    fn is_interesting_instruction(
+    fn is_interesting_asan_instruction(
         &self,
         _address: u64,
         instr: &Insn,
@@ -587,6 +784,64 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
                     opmem.disp(),
                     self.get_instruction_width(instr, &operands),
                 ));
+            }
+        }
+
+        Err(())
+    }
+
+    #[inline]
+    fn is_interesting_cmplog_instruction(
+        &self,
+        _address: u64,
+        instr: &Insn,
+    ) -> Result<(CmplogOperandType, CmplogOperandType), ()> {
+        // We only care for compare instrunctions - aka instructions which set the flags
+        match instr.mnemonic().unwrap() {
+            "cmp" | "ands" | "subs" => (),
+            _ => return Err(()),
+        }
+        let operands = self
+            .capstone
+            .insn_detail(instr)
+            .unwrap()
+            .arch_detail()
+            .operands();
+        if operands.len() != 2 {
+            return Err(());
+        }
+
+        if let Arm64Operand(arm64operand) = operands.first().unwrap() {
+            let operand1 = match arm64operand.op_type {
+                Arm64OperandType::Reg(regid) => Some(CmplogOperandType::regid(regid)),
+                Arm64OperandType::Imm(val) => Some(CmplogOperandType::imm(val as u64)),
+                Arm64OperandType::Mem(opmem) => Some(CmplogOperandType::mem(
+                    opmem.base(),
+                    opmem.index(),
+                    opmem.disp(),
+                    self.get_instruction_width(instr, &operands),
+                )),
+                Arm64OperandType::Cimm(val) => Some(CmplogOperandType::cimm(val as u64)),
+                _ => return Err(()),
+            };
+
+            if let Arm64Operand(arm64operand2) = operands.last().unwrap() {
+                let operand2 = match arm64operand2.op_type {
+                    Arm64OperandType::Reg(regid) => Some(CmplogOperandType::regid(regid)),
+                    Arm64OperandType::Imm(val) => Some(CmplogOperandType::imm(val as u64)),
+                    Arm64OperandType::Mem(opmem) => Some(CmplogOperandType::mem(
+                        opmem.base(),
+                        opmem.index(),
+                        opmem.disp(),
+                        self.get_instruction_width(instr, &operands),
+                    )),
+                    Arm64OperandType::Cimm(val) => Some(CmplogOperandType::cimm(val as u64)),
+                    _ => return Err(()),
+                };
+                println!("set both operands");
+                if operand1.is_some() && operand2.is_some() {
+                    return Ok((operand1.unwrap(), operand2.unwrap()));
+                }
             }
         }
 
