@@ -1,4 +1,5 @@
 pub mod asan_rt;
+pub mod cmplog_rt;
 
 /// A representation of the various Frida options
 #[derive(Clone, Copy, Debug)]
@@ -8,6 +9,7 @@ pub struct FridaOptions {
     enable_asan_continue_after_error: bool,
     enable_coverage: bool,
     enable_drcov: bool,
+    enable_cmplog: bool,
 }
 
 impl FridaOptions {
@@ -38,6 +40,9 @@ impl FridaOptions {
                     "drcov" => {
                         options.enable_drcov = value.parse().unwrap();
                     }
+                    "cmplog" => {
+                        options.enable_cmplog = value.parse().unwrap();
+                    }
                     _ => {
                         panic!("unknown FRIDA option: '{}'", option);
                     }
@@ -62,6 +67,10 @@ impl FridaOptions {
     pub fn drcov_enabled(&self) -> bool {
         self.enable_drcov
     }
+    /// Is CmpLog enabled?
+    pub fn cmplog_enabled(&self) -> bool {
+        self.enable_cmplog
+    }
 
     /// Should ASAN detect leaks
     pub fn asan_detect_leaks(&self) -> bool {
@@ -82,6 +91,7 @@ impl Default for FridaOptions {
             enable_asan_continue_after_error: false,
             enable_coverage: true,
             enable_drcov: false,
+            enable_cmplog: true,
         }
     }
 }
