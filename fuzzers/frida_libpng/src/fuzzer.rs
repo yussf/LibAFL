@@ -958,7 +958,7 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
         }
 
         let operand1 = if let Arm64Operand(arm64operand) = operands.first().unwrap() {
-            let operand1 = match arm64operand.op_type {
+            match arm64operand.op_type {
                 Arm64OperandType::Reg(regid) => Some(CmplogOperandType::regid(regid)),
                 Arm64OperandType::Imm(val) => Some(CmplogOperandType::imm(val as u64)),
                 Arm64OperandType::Mem(opmem) => Some(CmplogOperandType::mem(
@@ -969,11 +969,13 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
                 )),
                 Arm64OperandType::Cimm(val) => Some(CmplogOperandType::cimm(val as u64)),
                 _ => return Err(()),
-            };
+            }
+        } else {
+            None
         };
 
         let operand2 = if let Arm64Operand(arm64operand2) = operands.last().unwrap() {
-            let operand2 = match arm64operand2.op_type {
+            match arm64operand2.op_type {
                 Arm64OperandType::Reg(regid) => Some(CmplogOperandType::regid(regid)),
                 Arm64OperandType::Imm(val) => Some(CmplogOperandType::imm(val as u64)),
                 Arm64OperandType::Mem(opmem) => Some(CmplogOperandType::mem(
@@ -984,7 +986,9 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
                 )),
                 Arm64OperandType::Cimm(val) => Some(CmplogOperandType::cimm(val as u64)),
                 _ => return Err(()),
-            };
+            }
+        } else {
+            None
         };
 
         if operand1.is_some() && operand2.is_some() {
