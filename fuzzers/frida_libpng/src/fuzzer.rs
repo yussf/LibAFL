@@ -282,7 +282,6 @@ fn print_operand(op: &CmplogOperandType) {
     }
 }
 
-
 /// The implementation of the FridaEdgeCoverageHelper
 impl<'a> FridaEdgeCoverageHelper<'a> {
     /// Constructor function to create a new FridaEdgeCoverageHelper, given a module_name.
@@ -365,11 +364,6 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
                             helper.is_interesting_cmplog_instruction(address, instr)
                         {
                             //emit code that saves the relevant data in runtime(passes it to x0, x1)
-                            println!("emiting at address: {:#04x} {}", address, instr);
-                            // println!("op1:");
-                            // print_operand(&op1);
-                            // println!("op2:");
-                            // print_operand(&op2);
                             helper.emit_comparison_handling(address, &output, op1, op2);
                         }
                     }
@@ -426,8 +420,6 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
         op2: CmplogOperandType,
     ) {
         let writer = output.writer();
-
-        //writer.put_brk_imm(1);
 
         // Preserve x0, x1:
         writer.put_stp_reg_reg_reg_offset(
@@ -709,9 +701,8 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
                 writer.put_ldr_reg_reg_offset(Aarch64Register::X1, Aarch64Register::X1, 0u64);
             }
         }
-        println!("finished emiting the \"pass to x0,x1\" code");
+
         //call cmplog runtime to populate the values map
-        //writer.put_brk_imm(88);
         writer.put_bytes(&self.cmplog_runtime.ops_save_register_and_blr_to_populate());
 
         // Restore x0, x1
@@ -722,8 +713,6 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
             16 + frida_gum_sys::GUM_RED_ZONE_SIZE as i64,
             IndexMode::PostAdjust,
         ));
-
-        println!("wrote restore x0 x1");
     }
 
     #[inline]
@@ -997,8 +986,6 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
                 _ => return Err(()),
             };
         };
-
-        println!("set both operands");
 
         if operand1.is_some() && operand2.is_some() {
             Ok((operand1.unwrap(), operand2.unwrap()))
