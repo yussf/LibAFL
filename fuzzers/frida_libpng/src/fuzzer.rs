@@ -667,7 +667,7 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
                                         );
                                     }
                                     _ => {
-                                        //basereg is not x0 nor x1
+                                        //basereg is not x0, can be x1
                                         //index reg is not x0 nor x1
 
                                         //add them into x1
@@ -968,7 +968,7 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
             return Err(());
         }
 
-        if let Arm64Operand(arm64operand) = operands.first().unwrap() {
+        let operand1 = if let Arm64Operand(arm64operand) = operands.first().unwrap() {
             let operand1 = match arm64operand.op_type {
                 Arm64OperandType::Reg(regid) => Some(CmplogOperandType::regid(regid)),
                 Arm64OperandType::Imm(val) => Some(CmplogOperandType::imm(val as u64)),
@@ -981,28 +981,30 @@ impl<'a> FridaEdgeCoverageHelper<'a> {
                 Arm64OperandType::Cimm(val) => Some(CmplogOperandType::cimm(val as u64)),
                 _ => return Err(()),
             };
+        };
 
-            if let Arm64Operand(arm64operand2) = operands.last().unwrap() {
-                let operand2 = match arm64operand2.op_type {
-                    Arm64OperandType::Reg(regid) => Some(CmplogOperandType::regid(regid)),
-                    Arm64OperandType::Imm(val) => Some(CmplogOperandType::imm(val as u64)),
-                    Arm64OperandType::Mem(opmem) => Some(CmplogOperandType::mem(
-                        opmem.base(),
-                        opmem.index(),
-                        opmem.disp(),
-                        self.get_instruction_width(instr, &operands),
-                    )),
-                    Arm64OperandType::Cimm(val) => Some(CmplogOperandType::cimm(val as u64)),
-                    _ => return Err(()),
-                };
-                println!("set both operands");
-                if operand1.is_some() && operand2.is_some() {
-                    return Ok((operand1.unwrap(), operand2.unwrap()));
-                }
-            }
+        let operand2 = if let Arm64Operand(arm64operand2) = operands.last().unwrap() {
+            let operand2 = match arm64operand2.op_type {
+                Arm64OperandType::Reg(regid) => Some(CmplogOperandType::regid(regid)),
+                Arm64OperandType::Imm(val) => Some(CmplogOperandType::imm(val as u64)),
+                Arm64OperandType::Mem(opmem) => Some(CmplogOperandType::mem(
+                    opmem.base(),
+                    opmem.index(),
+                    opmem.disp(),
+                    self.get_instruction_width(instr, &operands),
+                )),
+                Arm64OperandType::Cimm(val) => Some(CmplogOperandType::cimm(val as u64)),
+                _ => return Err(()),
+            };
+        };
+
+        println!("set both operands");
+
+        if operand1.is_some() && operand2.is_some() {
+            Ok((operand1.unwrap(), operand2.unwrap()))
+        } else {
+            Err(())
         }
-
-        Err(())
     }
 
     #[inline]
