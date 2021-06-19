@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // jump to rust
 void fuzzer_main();
@@ -23,7 +24,7 @@ int __attribute__((weak)) main(int argc, char *argv[]) {
     fuzzer_main();
   } else {
     printf("libafl fuzzer instance\n");
-    printf("Syntax: %s [-x dictionary] corpus_dir seed_dir\n");
+    printf("Syntax: %s [-x dictionary] corpus_dir seed_dir\n", argv[0]);
   }
   return 0;
 }
