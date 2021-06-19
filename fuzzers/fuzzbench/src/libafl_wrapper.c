@@ -19,6 +19,11 @@ int __attribute__((weak)) LLVMFuzzerTestOneInput(const uint8_t *buf, size_t len)
 int __attribute__((weak)) main(int argc, char *argv[]) {
   (void) argc;
   (void) argv;
+  if (argc < 3 ) {
+    printf("libafl fuzzer instance\n");
+    printf("Syntax: %s [-x dictionary] corpus_dir seed_dir\n");
+    return 0;
+  }
   fuzzer_main();
   return 0;
 }
