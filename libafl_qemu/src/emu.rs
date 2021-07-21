@@ -32,6 +32,15 @@ pub struct SyscallHookResult {
     skip_syscall: bool,
 }
 
+impl SyscallHookResult {
+    pub fn new(retval: u64, skip_syscall: bool) -> Self {
+        Self {
+            retval,
+            skip_syscall
+        }
+    }
+}
+
 #[repr(C)]
 pub struct MapInfo {
     start: u64,
