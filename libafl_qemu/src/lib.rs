@@ -56,7 +56,7 @@ static mut PY_GENERIC_HOOKS: Vec<(u64, PyObject)> = vec![];
 #[allow(clippy::items_after_statements, clippy::too_many_lines)]
 pub fn python_module(py: Python, m: &PyModule) -> PyResult<()> {
     use core::mem::transmute;
-    use pyo3::exceptions::PyValueError;
+    use pyo3::{exceptions::PyValueError, PyTryInto};
     use std::convert::TryFrom;
     use strum::IntoEnumIterator;
 
@@ -151,7 +151,7 @@ pub fn python_module(py: Python, m: &PyModule) -> PyResult<()> {
                     if any.is_none() {
                         SyscallHookResult::new(None)
                     } else {
-                        let a: Result<&PyInt, _> = any.try_into();
+                        let a: Result<&PyInt, _> = PyTryInto::try_into(&any);
                         if let Ok(i) = a {
                             SyscallHookResult::new(Some(
                                 i.extract().expect("Invalid syscall hook return value"),
