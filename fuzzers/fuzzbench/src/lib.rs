@@ -22,7 +22,10 @@ use libafl::{
         shmem::{ShMemProvider, StdShMemProvider},
         tuples::{tuple_list, Merge},
     },
-    corpus::{Corpus, IndexesLenTimeMinimizerCorpusScheduler, OnDiskCorpus, QueueCorpusScheduler},
+    corpus::{
+        CachedOnDiskCorpus, Corpus, IndexesLenTimeMinimizerCorpusScheduler, OnDiskCorpus,
+        QueueCorpusScheduler,
+    },
     events::SimpleRestartingEventManager,
     executors::{inprocess::InProcessExecutor, ExitKind, TimeoutExecutor},
     feedback_or,
@@ -228,7 +231,7 @@ fn fuzz(
             // RNG
             StdRand::with_seed(current_nanos()),
             // Corpus that will be evolved, we keep it in memory for performance
-            OnDiskCorpus::new(corpus_dir).unwrap(),
+            CachedOnDiskCorpus::new(corpus_dir, 256).unwrap(),
             // Corpus in which we store solutions (crashes in this example),
             // on disk so the user can get them after stopping the fuzzer
             OnDiskCorpus::new(objective_dir).unwrap(),
