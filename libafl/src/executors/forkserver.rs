@@ -242,7 +242,9 @@ impl Forkserver {
             )
             .spawn()
         {
-            Ok(_) => {}
+            Ok(_) => {
+                println!("got it running");
+            }
             Err(err) => {
                 return Err(Error::Forkserver(format!(
                     "Could not spawn the forkserver: {:#?}",
@@ -303,7 +305,7 @@ impl Forkserver {
 
         let rlen = self.st_pipe.read(&mut buf)?;
         let val: i32 = i32::from_ne_bytes(buf);
-
+        println!("{:?}", buf);
         Ok((rlen, val))
     }
 
@@ -541,7 +543,7 @@ where
         use_shmem_testcase: bool,
         observers: OT,
     ) -> Result<Self, Error> {
-        Self::with_debug(target, arguments, use_shmem_testcase, observers, false)
+        Self::with_debug(target, arguments, use_shmem_testcase, observers, true)
     }
 
     /// Creates a new [`ForkserverExecutor`] with the given target, arguments and observers, with debug mode
