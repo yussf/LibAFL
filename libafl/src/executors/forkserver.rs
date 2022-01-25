@@ -257,7 +257,7 @@ impl Forkserver {
         ctl_pipe.close_read_end();
         st_pipe.close_write_end();
 
-        let err_pipe = child.unwrap().stderr.unwrap();
+        let err_pipe = child.unwrap().stderr.take().unwrap();
 
         Ok(Self {
             st_pipe,
