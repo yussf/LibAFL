@@ -226,7 +226,8 @@ impl Forkserver {
             Stdio::null()
         };
 
-        let child = match Command::new(target)
+        println!("b0");
+        let mut child = match Command::new(target)
             .args(args)
             .stdin(Stdio::null())
             .stdout(stdout)
@@ -251,13 +252,18 @@ impl Forkserver {
                 "Could not spawn the forkserver: {:#?}",
                 err
             ))),
-        };
-
+        }
+        .unwrap();
+        println!("bs");
         // Ctl_pipe.read_end and st_pipe.write_end are unnecessary for the parent, so we'll close them
         ctl_pipe.close_read_end();
         st_pipe.close_write_end();
 
-        let err_pipe = child.unwrap().stderr.take().unwrap();
+        println!("b1");
+        let err_pipe = child.stderr.take().unwrap();
+        println!("b2");
+        child.wait().expect("failed at waiting");
+        println!("b3");
 
         Ok(Self {
             st_pipe,
@@ -718,6 +724,9 @@ where
             println!("Got crash yes");
             println!("with input={:?}", input);
         }
+
+        self.forkserver.st_pipe.close_read_end();
+        self.forkserver.st_pipe.close_write_end();
 
         let mut buf = String::new();
         self.forkserver
